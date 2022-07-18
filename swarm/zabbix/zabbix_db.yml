@@ -1,0 +1,37 @@
+version: '3.6'
+
+services:
+
+  zabbix-db:
+    image: mysql:8.0.29
+    environment:
+    - MYSQL_ROOT_PASSWORD=admin
+    - MYSQL_USER=admin
+    - MYSQL_PASSWORD=admin
+    - MYSQL_DATABASE=zabbix
+    volumes:
+      - /data/zabbix_db:/var/lib/mysql
+    networks:
+      monitoring_net: {}
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      placement:
+        constraints: [node.role == manager]
+    ports:
+    - 3306:3306
+
+volumes:
+  zabbix_db_data:
+    driver: local
+
+networks:
+  monitoring_net:
+    external: true
+    name: monitoring_overlay
