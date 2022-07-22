@@ -1,0 +1,115 @@
+version: '3.5'
+services:
+ zabbix-server:
+  image: zabbix/zabbix-server-mysql:ubuntu-6.2-latest
+  ports:
+   - "10051:10051"
+  environment:
+   - DB_SERVER_HOST=mysql-server
+   - MYSQL_USER=root
+   - MYSQL_PASSWORD=admin
+   - MYSQL_DATABASE=zabbix
+  deploy:
+    mode: replicated
+    replicas: 1
+    restart_policy:
+      condition: on-failure
+      delay: 5s
+      max_attempts: 3
+  volumes:
+   - /data/zabbix:/var/lib/zabbix:rw
+  depends_on:
+   - mysql-server
+  networks:
+   zbx_net_backend:
+     aliases:
+      - zabbix-server
+      - zabbix-server-mysql
+      - zabbix-server-ubuntu-mysql
+      - zabbix-server-mysql-ubuntu
+   zbx_net_frontend:
+  sysctls:
+   - net.ipv4.ip_local_port_range=1024 65000
+   - net.ipv4.conf.all.accept_redirects=0
+   - net.ipv4.conf.all.secure_redirects=0
+   - net.ipv4.conf.all.send_redirects=0
+
+ zabbix-web-apache-mysql:
+  image: zabbix/zabbix-web-apache-mysql:ubuntu-6.2-latest
+  ports:
+   - "8081:8080"
+   - "8443:8443"
+  environment:
+   - DB_SERVER_HOST=mysql-server
+   - MYSQL_DATABASE=zabbix
+   - MYSQL_USER=root
+   - MYSQL_PASSWORD=admin
+   - ZBX_SERVER_HOST=zabbix-server
+  deploy:
+    mode: replicated
+    replicas: 1
+    restart_policy:
+      condition: on-failure
+      delay: 10s
+      max_attempts: 3
+  depends_on:
+   - mysql-server
+   - zabbix-server
+  networks:
+   zbx_net_backend:
+    aliases:
+     - zabbix-web-apache-mysql
+     - zabbix-web-apache-ubuntu-mysql
+     - zabbix-web-apache-mysql-ubuntu
+   zbx_net_frontend:
+  sysctls:
+   - net.core.somaxconn=65535
+
+ zabbix-agent:
+  image: zabbix/zabbix-agent:ubuntu-6.2-latest
+  ports:
+   - "10050:10050"
+  environment:
+   - ZBX_SERVER_HOST=zabbix-server
+   - ZBX_PASSIVE_ALLOW=true
+   - ZBX_ACTIVE_ALLOW=true
+  deploy:
+   mode: global
+  privileged: true
+  pid: "host"
+  networks:
+   zbx_net_backend:
+    aliases:
+     - zabbix-agent
+     - zabbix-agent-passive
+     - zabbix-agent-ubuntu
+
+ mysql-server:
+  image: mysql:8.0-oracle
+  command:
+   - mysqld
+   - --character-set-server=utf8mb4
+   - --collation-server=utf8mb4_bin
+   - --default-authentication-plugin=mysql_native_password
+  environment:
+   - MYSQL_ROOT_PASSWORD=admin
+   - MYSQL_DATABASE=zabbix
+  volumes:
+   - /data/zabbix_db:/var/lib/mysql:rw
+  networks:
+   zbx_net_backend:
+    aliases:
+     - mysql-server
+     - zabbix-database
+     - mysql-database
+
+networks:
+  zbx_net_frontend:
+    driver: overlay
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
+  zbx_net_backend:
+    driver: overlay
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
+    internal: true
