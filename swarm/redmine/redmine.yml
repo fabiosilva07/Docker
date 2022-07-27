@@ -1,0 +1,27 @@
+version: '3.5'
+
+services:
+  redmine:
+    image: docker.io/bitnami/redmine:5.0.2
+    ports:
+      - '8087:3000'
+    secrets:
+      - rdm_dbpass
+    environment:
+      - REDMINE_DATABASE_HOST=rdm_db
+      - REDMINE_DATABASE_USER=admin
+      - REDMINE_DATABASE_PASSWORD_FILE=/run/secrets/rdm_dbpass
+      - REDMINE_DATABASE_NAME=redmine
+    volumes:
+      - /data/redmine:/bitnami/redmine
+    networks:
+      rdm_net:
+
+networks:
+  rdm_net:
+    name: redmine_db_rdm_net
+    external: true
+
+secrets:
+  rdm_dbpass:
+    external: true

@@ -1,0 +1,24 @@
+version: '3.5'
+
+services:
+  rdm_db:
+    image: docker.io/bitnami/mariadb:10.6
+    secrets:
+      - rdm_dbpass
+    volumes:
+      - /data/redmine_db:/bitnami/mariadb
+    environment:
+      - MARIADB_USER=admin
+      - MARIADB_PASSWORD_FILE=/run/secrets/rdm_dbpass
+      - MARIADB_DATABASE=redmine
+      - MARIADB_ROOT_PASSWORD_FILE=/run/secrets/rdm_dbpass
+    networks:
+      rdm_net:
+
+networks:
+  rdm_net:
+    driver: overlay
+
+secrets:
+  rdm_dbpass:
+    external: true
