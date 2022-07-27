@@ -4,34 +4,29 @@ services:
 
   zabbix-db:
     image: mysql:8.0.29
+    secrets:
+      - zbx_dbpass
     environment:
-    - MYSQL_ROOT_PASSWORD=admin
+    - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/zbx_dbpass
     - MYSQL_USER=admin
-    - MYSQL_PASSWORD=admin
+    - MYSQL_PASSWORD_FILE=/run/secrets/zbx_dbpass
     - MYSQL_DATABASE=zabbix
     volumes:
-      - /data/zabbix_db:/var/lib/mysql
+      - /data/zabbix/zabbix_db:/var/lib/mysql
     networks:
-      monitoring_net: {}
+      zbx_backend:
     deploy:
-      mode: replicated
-      replicas: 1
-      update_config:
-        parallelism: 1
-        delay: 10s
       restart_policy:
         condition: on-failure
         delay: 5s
-      placement:
-        constraints: [node.role == manager]
-    ports:
-    - 3306:3306
-
-volumes:
-  zabbix_db_data:
-    driver: local
 
 networks:
-  monitoring_net:
+  zbx_backend:
+    driver: overlay
+    internal: true
+  zbx_frontend:
+    driver: overlay
+
+secrets:
+  zbx_dbpass:
     external: true
-    name: monitoring_overlay
