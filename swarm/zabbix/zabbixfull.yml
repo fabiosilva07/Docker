@@ -17,22 +17,12 @@ services:
       delay: 5s
       max_attempts: 3
   volumes:
-   - /data/zabbix:/var/lib/zabbix:rw
+   - /data/zabbix/zabbix_server:/var/lib/zabbix:rw
   depends_on:
    - mysql-server
   networks:
    zbx_net_backend:
-     aliases:
-      - zabbix-server
-      - zabbix-server-mysql
-      - zabbix-server-ubuntu-mysql
-      - zabbix-server-mysql-ubuntu
    zbx_net_frontend:
-  sysctls:
-   - net.ipv4.ip_local_port_range=1024 65000
-   - net.ipv4.conf.all.accept_redirects=0
-   - net.ipv4.conf.all.secure_redirects=0
-   - net.ipv4.conf.all.send_redirects=0
 
  zabbix-web-apache-mysql:
   image: zabbix/zabbix-web-apache-mysql:ubuntu-6.2-latest
@@ -57,32 +47,19 @@ services:
    - zabbix-server
   networks:
    zbx_net_backend:
-    aliases:
-     - zabbix-web-apache-mysql
-     - zabbix-web-apache-ubuntu-mysql
-     - zabbix-web-apache-mysql-ubuntu
    zbx_net_frontend:
-  sysctls:
-   - net.core.somaxconn=65535
 
  zabbix-agent:
   image: zabbix/zabbix-agent:ubuntu-6.2-latest
   ports:
    - "10050:10050"
   environment:
+   - ZBX_HOSTNAME=zabbix-server
    - ZBX_SERVER_HOST=zabbix-server
-   - ZBX_PASSIVE_ALLOW=true
-   - ZBX_ACTIVE_ALLOW=true
   deploy:
    mode: global
-  privileged: true
-  pid: "host"
   networks:
    zbx_net_backend:
-    aliases:
-     - zabbix-agent
-     - zabbix-agent-passive
-     - zabbix-agent-ubuntu
 
  mysql-server:
   image: mysql:8.0-oracle
@@ -95,13 +72,9 @@ services:
    - MYSQL_ROOT_PASSWORD=admin
    - MYSQL_DATABASE=zabbix
   volumes:
-   - /data/zabbix_db:/var/lib/mysql:rw
+   - /data/zabbix/zabbix_db:/var/lib/mysql:rw
   networks:
    zbx_net_backend:
-    aliases:
-     - mysql-server
-     - zabbix-database
-     - mysql-database
 
 networks:
   zbx_net_frontend:
