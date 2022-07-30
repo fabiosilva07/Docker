@@ -12,7 +12,7 @@ services:
     - MYSQL_PASSWORD_FILE=/run/secrets/zbx_dbpass
     - MYSQL_DATABASE=zabbix
     volumes:
-      - /data/zabbix/zabbix_db:/var/lib/mysql
+      - /data/zabbix/zabbix-db:/var/lib/mysql
     networks:
       zbx_backend:
     deploy:
@@ -22,9 +22,6 @@ services:
 
 networks:
   zbx_backend:
-    driver: overlay
-    internal: true
-  zbx_frontend:
     driver: overlay
 
 secrets:
