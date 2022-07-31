@@ -1,97 +1,88 @@
 version: '3.5'
+
 services:
- zabbix-server:
-  image: zabbix/zabbix-server-mysql:ubuntu-6.2-latest
-  hostname: zabbix-server
-  ports:
-   - "10051:10051"
-  environment:
-   - DB_SERVER_HOST=mysql-server
-   - MYSQL_USER=root
-   - MYSQL_PASSWORD=admin
-   - MYSQL_DATABASE=zabbix
-   - ZBX_ENABLE_SNMP_TRAPS=true
-   - ZBX_AUTONODEADDRESS=hostname
-  deploy:
-    mode: replicated
-    replicas: 1
-    restart_policy:
-      condition: on-failure
-      delay: 5s
-      max_attempts: 3
-  volumes:
-   - /data/zabbix/zabbix_server:/var/lib/zabbix:rw
-  depends_on:
-   - mysql-server
-  networks:
-   zbx_net_backend:
-   zbx_net_frontend:
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:ubuntu-6.2-latest
+    hostname: zabbix-server
+    ports:
+     - "10051:10051"
+    secrets:
+     - zbx_dbpass
+    environment:
+     - DB_SERVER_HOST=zbx-db
+     - POSTGRES_USER=admin
+     - POSTGRES_PASSWORD_FILE=/run/secrets/zbx_dbpass
+     - POSTGRES_DB=zabbix
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+       condition: on-failure
+       delay: 5s
+       max_attempts: 3
+    volumes:
+     - /data/zabbix/zabbix:/var/lib/zabbix:rw
+    depends_on:
+     - zbx-db
+    networks:
+     zbx_net:
 
- zabbix-web-apache-mysql:
-  image: zabbix/zabbix-web-apache-mysql:ubuntu-6.2-latest
-  ports:
-   - "8081:8080"
-   - "8443:8443"
-  environment:
-   - DB_SERVER_HOST=mysql-server
-   - MYSQL_DATABASE=zabbix
-   - MYSQL_USER=root
-   - MYSQL_PASSWORD=admin
-   - ZBX_SERVER_HOST=zabbix-server
-  deploy:
-    mode: replicated
-    replicas: 1
-    restart_policy:
-      condition: on-failure
-      delay: 10s
-      max_attempts: 3
-  depends_on:
-   - mysql-server
-   - zabbix-server
-  networks:
-   zbx_net_backend:
-   zbx_net_frontend:
+  zabbix-web:
+    image: zabbix/zabbix-web-apache-pgsql:ubuntu-6.2-latest
+    ports:
+     - "8081:8080"
+     - "8443:8443"
+    secrets:
+     - zbx_dbpass
+    environment:
+     - DB_SERVER_HOST=zbx-db
+     - POSTGRES_DB=zabbix
+     - POSTGRES_USER=admin
+     - POSTGRES_PASSWORD_FILE=/run/secrets/zbx_dbpass
+     - ZBX_SERVER_HOST=zabbix-server
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+       condition: on-failure
+       delay: 10s
+       max_attempts: 3
+    depends_on:
+     - zbx-db
+    networks:
+      zbx_net:
 
- zabbix-agent:
-  image: zabbix/zabbix-agent:ubuntu-6.2-latest
-  ports:
-   - "10050:10050"
-  environment:
-   - ZBX_HOSTNAME=zabbix-server
-   - ZBX_SERVER_HOST=zabbix-server
-  deploy:
-   mode: global
-  networks:
-<<<<<<< V1
-   zbx_net_backend:
+  zabbix-agent:
+    image: zabbix/zabbix-agent:ubuntu-6.2-latest
+    ports:
+     - "10050:10050"
+    environment:
+     - ZBX_HOSTNAME=zabbix-server
+     - ZBX_SERVER_HOST=zabbix-server
+    deploy:
+      mode: global
+    networks:
+      zbx_net:
 
- mysql-server:
-  image: mysql:8.0-oracle
-  command:
-   - mysqld
-   - --character-set-server=utf8mb4
-   - --collation-server=utf8mb4_bin
-   - --default-authentication-plugin=mysql_native_password
-  environment:
-   - MYSQL_ROOT_PASSWORD=admin
-   - MYSQL_DATABASE=zabbix
-  volumes:
-   - /data/zabbix/zabbix_db:/var/lib/mysql:rw
-  networks:
-   zbx_net_backend:
+  zbx-db:
+    image: postgres:13-alpine
+    secrets:
+     - zbx_dbpass
+    volumes:
+     - /data/zabbix/zabbix_db:/var/lib/postgresql/data:rw
+    environment:
+     - POSTGRES_PASSWORD_FILE=/run/secrets/zbx_dbpass
+     - POSTGRES_USER=admin
+     - POSTGRES_DB=zabbix
+    networks:
+      zbx_net:
 
-=======
-#   zbxagent_net:
-#    zabbix_db_zbx_backend:
-    zbx_frontend:
->>>>>>> local
 networks:
-  zbx_net_frontend:
+  zbx_net:
     driver: overlay
     driver_opts:
       com.docker.network.enable_ipv6: "false"
-  zbx_net_backend:
-    driver: overlay
-    driver_opts:
-      com.docker.network.enable_ipv6: "false"
-    internal: true
+
+secrets:
+  zbx_dbpass:
+    external: true
