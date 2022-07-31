@@ -2,6 +2,7 @@ version: '3.5'
 services:
  zabbix-server:
   image: zabbix/zabbix-server-mysql:ubuntu-6.2-latest
+  hostname: zabbix-server
   ports:
    - "10051:10051"
   environment:
@@ -9,6 +10,8 @@ services:
    - MYSQL_USER=root
    - MYSQL_PASSWORD=admin
    - MYSQL_DATABASE=zabbix
+   - ZBX_ENABLE_SNMP_TRAPS=true
+   - ZBX_AUTONODEADDRESS=hostname
   deploy:
     mode: replicated
     replicas: 1
@@ -59,6 +62,7 @@ services:
   deploy:
    mode: global
   networks:
+<<<<<<< V1
    zbx_net_backend:
 
  mysql-server:
@@ -76,6 +80,11 @@ services:
   networks:
    zbx_net_backend:
 
+=======
+#   zbxagent_net:
+#    zabbix_db_zbx_backend:
+    zbx_frontend:
+>>>>>>> local
 networks:
   zbx_net_frontend:
     driver: overlay
