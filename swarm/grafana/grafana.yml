@@ -1,0 +1,22 @@
+version: '3.6'
+
+services:
+  grafana:
+    image: grafana/grafana-oss:9.0.2-ubuntu
+    ports:
+     - '3000:3000'
+    volumes:
+     - /data/grafana:/var/lib/grafana
+    environment:
+     - GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app
+    networks:
+      grafana_net:
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+
+networks:
+  grafana_net:
