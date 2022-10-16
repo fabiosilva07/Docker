@@ -13,14 +13,26 @@ services:
       - REDMINE_DATABASE_PASSWORD_FILE=/run/secrets/rdm_dbpass
       - REDMINE_DATABASE_NAME=redmine
     volumes:
-      - /data/redmine:/bitnami/redmine
+      - /data/redmine/redmine:/bitnami/redmine
+    networks:
+      rdm_net:
+
+  rdm_db:
+    image: docker.io/bitnami/mariadb:10.6
+    secrets:
+      - rdm_dbpass
+    volumes:
+      - /data/redmine/redmine_db:/bitnami/mariadb
+    environment:
+      - MARIADB_USER=admin
+      - MARIADB_PASSWORD_FILE=/run/secrets/rdm_dbpass
+      - MARIADB_DATABASE=redmine
+      - MARIADB_ROOT_PASSWORD_FILE=/run/secrets/rdm_dbpass
     networks:
       rdm_net:
 
 networks:
   rdm_net:
-    name: redmine_db_rdm_net
-    external: true
 
 secrets:
   rdm_dbpass:

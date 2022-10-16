@@ -1,81 +1,204 @@
-version: '3.6'
+version: '3.5'
+
 services:
- zabbix-server:
-  image: zabbix/zabbix-server-mysql:ubuntu-6.2-latest
-  ports:
-   - "10051:10051"
-  secrets:
-   - zbx_dbpass
-  environment:
-   - DB_SERVER_HOST=zabbix-db
-   - MYSQL_USER=root
-   - MYSQL_PASSWORD_FILE=/run/secrets/zbx_dbpass
-   - MYSQL_DATABASE=zabbix
-  deploy:
-    mode: replicated
-    replicas: 1
-    restart_policy:
-      condition: on-failure
-      delay: 5s
-      max_attempts: 3
-  volumes:
-   - /data/zabbix/zabbix-server:/var/lib/zabbix:rw
-  networks:
-   zabbix_db_zbx_backend:
-     aliases:
-      - zabbix-server
-   zbx_frontend:
-     aliases:
-      - zabbix-server
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:ubuntu-6.2-latest
+    hostname: zabbix-server
+    ports:
+     - "10051:10051"
+    secrets:
+     - zbx_dbpass
+    environment:
+     - DB_SERVER_HOST=zbx-db
+     - POSTGRES_USER=admin
+     - POSTGRES_PASSWORD_FILE=/run/secrets/zbx_dbpass
+     - POSTGRES_DB=zabbix
+     - ZBX_JAVAGATEWAY_ENABLE=true
+     - ZBX_ENABLE_SNMP_TRAPS=true
+     - ZBX_STARTJAVAPOLLERS=5
+    volumes:
+     - /etc/localtime:/etc/localtime:ro
+     - /data/zabbix/zabbix/usr/lib/zabbix/alertscripts:/usr/lib/zabbix/alertscripts:ro
+     - /data/zabbix/zabbix/usr/lib/zabbix/externalscripts:/usr/lib/zabbix/externalscripts:ro
+     - /data/zabbix/zabbix/var/lib/zabbix/export:/var/lib/zabbix/export:rw
+     - /data/zabbix/zabbix/var/lib/zabbix/modules:/var/lib/zabbix/modules:ro
+     - /data/zabbix/zabbix/var/lib/zabbix/enc:/var/lib/zabbix/enc:ro
+     - /data/zabbix/zabbix/var/lib/zabbix/ssh_keys:/var/lib/zabbix/ssh_keys:ro
+     - /data/zabbix/zabbix/var/lib/zabbix/mibs:/var/lib/zabbix/mibs:ro
+     - snmptraps:/var/lib/zabbix/snmptraps:rw
+    depends_on:
+     - zbx-db
+    networks:
+      zbx_net_backend:
+        aliases:
+         - zabbix-server
+         - zabbix-server-pgsql
+         - zabbix-server-ubuntu-pgsql
+         - zabbix-server-pgsql-ubuntu
+      zbx_net_frontend:
+    stop_grace_period: 30s
+    sysctls:
+     - net.ipv4.ip_local_port_range=1024 65000
+     - net.ipv4.conf.all.accept_redirects=0
+     - net.ipv4.conf.all.secure_redirects=0
+     - net.ipv4.conf.all.send_redirects=0
 
- zabbix-web-apache-mysql:
-  image: zabbix/zabbix-web-apache-mysql:ubuntu-6.2-latest
-  ports:
-   - "8081:8080"
-   - "8443:8443"
-  secrets:
-   - zbx_dbpass
-  environment:
-   - DB_SERVER_HOST=zabbix-db
-   - MYSQL_DATABASE=zabbix
-   - MYSQL_USER=root
-   - MYSQL_PASSWORD_FILE=/run/secrets/zbx_dbpass
-   - ZBX_SERVER_HOST=zabbix-server
-  deploy:
-    mode: replicated
-    replicas: 1
-    restart_policy:
-      condition: on-failure
-      delay: 10s
-      max_attempts: 3
-  depends_on:
-   - zabbix-server
-  networks:
-   zabbix_db_zbx_backend:
-   zbx_frontend:
+  zabbix-proxy-sqlite3:
+    image: zabbix/zabbix-proxy-sqlite3:ubuntu-6.2-latest
+    ports:
+     - "10061:10051"
+    volumes:
+     - /data/zabbix/zabbix/usr/lib/zabbix/externalscripts:/usr/lib/zabbix/externalscripts:ro
+     - /data/zabbix/zabbix/var/lib/zabbix/modules:/var/lib/zabbix/modules:ro
+     - /data/zabbix/zabbix/var/lib/zabbix/enc:/var/lib/zabbix/enc:ro
+     - /data/zabbix/zabbix/var/lib/zabbix/ssh_keys:/var/lib/zabbix/ssh_keys:ro
+     - /data/zabbix/zabbix/var/lib/zabbix/mibs:/var/lib/zabbix/mibs:ro
+     - snmptraps:/var/lib/zabbix/snmptraps:rw
+    environment:
+     - ZBX_SERVER_HOST=zabbix-server
+    depends_on:
+     - zabbix-java-gateway
+     - zabbix-snmptraps
+    networks:
+      zbx_net_backend:
+        aliases:
+         - zabbix-proxy-sqlite3
+         - zabbix-proxy-ubuntu-sqlite3
+         - zabbix-proxy-sqlite3-ubuntu
+      zbx_net_frontend:
+    stop_grace_period: 30s
 
- zabbix-agent:
-  image: zabbix/zabbix-agent:ubuntu-6.2-latest
-  ports:
-   - "10050:10050"
-  environment:
-   - ZBX_SERVER_HOST=zabbix-server
-  deploy:
-   mode: global
-  networks:
-#   zbxagent_net:
-    zabbix_db_zbx_backend:
+  zabbix-web:
+    image: zabbix/zabbix-web-apache-pgsql:ubuntu-6.2-latest
+    ports:
+     - "8081:8080"
+     - "8443:8443"
+    volumes:
+     - /data/zabbix/zabbix/etc/ssl/apache2:/etc/ssl/apache2:ro
+     - /data/zabbix/zabbix/usr/share/zabbix/modules:/usr/share/zabbix/modules:ro
+    secrets:
+     - zbx_dbpass
+    environment:
+     - DB_SERVER_HOST=zbx-db
+     - POSTGRES_DB=zabbix
+     - POSTGRES_USER=admin
+     - POSTGRES_PASSWORD_FILE=/run/secrets/zbx_dbpass
+     - ZBX_SERVER_HOST=zabbix-server
+     - ZBX_SERVER_NAME=zabbix-server
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+       condition: on-failure
+       delay: 10s
+       max_attempts: 3
+    depends_on:
+     - zbx-db
+     - zabbix-server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      zbx_net_backend:
+        aliases:
+         - zabbix-web-apache-pgsql
+         - zabbix-web-apache-ubuntu-pgsql
+         - zabbix-web-apache-pgsql-ubuntu
+      zbx_net_frontend:
+    stop_grace_period: 10s
+    sysctls:
+     - net.core.somaxconn=65535
+
+  zabbix-java-gateway:
+    image: zabbix/zabbix-java-gateway:ubuntu-6.2-latest
+    ports:
+     - "10052:10052"
+    networks:
+      zbx_net_backend:
+        aliases:
+         - zabbix-java-gateway
+         - zabbix-java-gateway-ubuntu
+    stop_grace_period: 5s
+
+  zabbix-agent:
+    image: zabbix/zabbix-agent:ubuntu-6.2-latest
+    ports:
+     - "10050:10050"
+    volumes:
+     - /etc/localtime:/etc/localtime:ro
+     - /data/zabbix/zabbix/etc/zabbix/zabbix_agentd.d:/etc/zabbix/zabbix_agentd.d:ro
+     - /data/zabbix/zabbix/var/lib/zabbix/modules:/var/lib/zabbix/modules:ro
+     - /data/zabbix/zabbix/var/lib/zabbix/enc:/var/lib/zabbix/enc:ro
+     - /data/zabbix/zabbix/var/lib/zabbix/ssh_keys:/var/lib/zabbix/ssh_keys:ro
+    environment:
+     - ZBX_HOSTNAME=zabbix-server
+     - ZBX_SERVER_HOST=zabbix-server
+    deploy:
+      mode: global
+    networks:
+      zbx_net_backend:
+        aliases:
+         - zabbix-agent
+         - zabbix-agent-passive
+         - zabbix-agent-ubuntu
+    stop_grace_period: 5s
+
+  zabbix-snmptraps:
+    image: zabbix/zabbix-snmptraps:ubuntu-6.2-latest
+    ports:
+     - "162:1162/udp"
+    volumes:
+     - snmptraps:/var/lib/zabbix/snmptraps:rw
+    networks:
+      zbx_net_frontend:
+        aliases:
+         - zabbix-snmptraps
+      zbx_net_backend:
+    stop_grace_period: 5s
+
+  zabbix-web-service:
+    image: zabbix/zabbix-web-service:ubuntu-6.2-latest
+    ports:
+     - "10053:10053"
+    volumes:
+     - /data/zabbix/zabbix/var/lib/zabbix/enc:/var/lib/zabbix/enc:ro
+    environment:
+     - ZBX_ALLOWEDIP=zabbix-server
+    networks:
+      zbx_net_backend:
+        aliases:
+         - zabbix-web-service
+         - zabbix-web-service-ubuntu
+    stop_grace_period: 5s
+
+  zbx-db:
+    image: postgres:13-alpine
+    secrets:
+     - zbx_dbpass
+    volumes:
+     - /data/zabbix/zabbix_db:/var/lib/postgresql/data:rw
+    environment:
+     - POSTGRES_PASSWORD_FILE=/run/secrets/zbx_dbpass
+     - POSTGRES_USER=admin
+     - POSTGRES_DB=zabbix
+    networks:
+      zbx_net_backend:
+        aliases:
+         - postgres-server
+         - pgsql-server
+         - pgsql-database
+    stop_grace_period: 1m
 
 networks:
-#  zbxagent_net:
-#    driver: overlay
-#    driver_opts:
-#      com.docker.network.enable_ipv6: "false"
-  zbx_frontend:
+  zbx_net_backend:
     driver: overlay
     driver_opts:
       com.docker.network.enable_ipv6: "false"
-  zabbix_db_zbx_backend:
+    internal: true
+  zbx_net_frontend:
     driver: overlay
     external: true
     driver_opts:
@@ -84,3 +207,6 @@ networks:
 secrets:
   zbx_dbpass:
     external: true
+
+volumes:
+  snmptraps:
