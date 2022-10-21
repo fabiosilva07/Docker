@@ -1,0 +1,68 @@
+version: '3.5'
+
+services:
+  mariadb:
+    image: docker.io/bitnami/mariadb:10.6
+    secrets:
+      - wp_dbpass
+    volumes:
+      - /data/wordpress/mariadb:/bitnami/mariadb
+    environment:
+      # ALLOW_EMPTY_PASSWORD is recommended only for development.
+      # - ALLOW_EMPTY_PASSWORD=yes
+      - MARIADB_USER=bn_wordpress
+      - MARIADB_DATABASE=bitnami_wordpress
+      - MARIADB_ROOT_PASSWORD_FILE=/run/secrets/wp_dbpass
+      - MARIADB_PASSWORD_FILE=/run/secrets/wp_dbpass
+    networks:
+      - wp_net
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+
+  wordpress:
+    image: docker.io/bitnami/wordpress:6
+    ports:
+      - 80:8080
+      - 443:8443
+    secrets:
+      - wp_dbpass
+    volumes:
+      - /data/wordpress/wordpress:/bitnami/wordpress
+      # - /data/wordpress/wordpress/apache2:/opt/bitnami/apache2
+    depends_on:
+      - mariadb
+    environment:
+      # ALLOW_EMPTY_PASSWORD is recommended only for development.
+      # - ALLOW_EMPTY_PASSWORD=yes
+      - WORDPRESS_DATABASE_HOST=mariadb
+      - WORDPRESS_DATABASE_PORT_NUMBER=3306
+      - WORDPRESS_DATABASE_USER=bn_wordpress
+      - WORDPRESS_DATABASE_NAME=bitnami_wordpress
+      - WORDPRESS_DATABASE_PASSWORD_FILE=/run/secrets/wp_dbpass
+    networks:
+      - wp_net
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+    #healthcheck:
+    #  test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/"]
+    #  interval: 10s
+    #  timeout: 5s
+    #  retries: 3
+    #  start_period: 30s
+
+networks:
+  wp_net:
+
+secrets:
+  wp_dbpass:
+    external: true

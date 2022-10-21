@@ -25,12 +25,12 @@ services:
         condition: on-failure
         delay: 10s
         max_attempts: 5
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
+    #healthcheck:
+    #  test: ["CMD", "curl", "-f", "http://localhost:80/"]
+    #  interval: 10s
+    #  timeout: 5s
+    #  retries: 3
+    #  start_period: 30s
 
   mysql:
     image: mysql:8.0.31
