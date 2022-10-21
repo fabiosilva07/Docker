@@ -1,0 +1,66 @@
+version: '3.5'
+
+services:
+  mongodb:
+    image: mongo:4.2
+    secrets:
+      - log_dbpass
+    volumes:
+      - /data/graylog/mongo:/data/db
+    #environment:
+    #  - MONGO_INITDB_ROOT_USERNAME=root
+    #  - MONGO_INITDB_ROOT_PASSWORD=/run/secrets/log_dbpass
+    networks:
+      - graylog_net
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
+    secrets:
+      - log_dbpass
+    volumes:
+      - /data/graylog/elastic:/usr/share/elasticsearch/data
+    environment:
+      - http.host=0.0.0.0
+      - transport.host=localhost
+      - network.host=0.0.0.0
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    networks:
+      - graylog_net
+
+  graylog:
+    image: graylog/graylog:4.3
+    volumes:
+      - /data/graylog/graylog:/usr/share/graylog/data
+    environment:
+      # CHANGE ME (must be at least 16 characters)!
+      - GRAYLOG_PASSWORD_SECRET=somepasswordpepper
+      # Password: admin
+      - GRAYLOG_ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - GRAYLOG_ROOT_PASSWORD_SHA2=8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+      - GRAYLOG_HTTP_BIND_ADDRESS=http://0.0.0.0:9000
+      - GRAYLOG_HTTP_PUBLISH_URI=http://graylog:9000/
+    entrypoint: /usr/bin/tini -- wait-for-it elasticsearch:9200 --  /docker-entrypoint.sh
+    restart: always
+    depends_on:
+      - mongodb
+      - elasticsearch
+    ports:
+      # Graylog web interface and REST API
+      - 5555:9000
+      # Syslog TCP
+      - 1514:1514
+      # Syslog UDP
+      - 1514:1514/udp
+      # GELF TCP
+      - 12201:12201
+      # GELF UDP
+      - 12201:12201/udp
+    networks:
+      - graylog_net
+
+networks:
+  graylog_net:
+
+secrets:
+  log_dbpass:
+    external: true

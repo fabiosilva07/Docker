@@ -1,0 +1,59 @@
+version: '3.5'
+
+services:
+  wordpress:
+    image: wordpress:apache
+    secrets:
+      - wp_dbpass
+    ports:
+      - 8080:80
+    environment:
+      - WORDPRESS_DB_HOST=mysql
+      - WORDPRESS_DB_USER=root
+      - WORDPRESS_DB_PASSWORD_FILE=/run/secrets/wp_dbpass
+      - WORDPRESS_DB_NAME=wordpress
+    networks:
+      - wp_net
+    volumes:
+      - /data/wordpress/wordpress:/var/www/html
+    depends_on:
+      - mysql
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  mysql:
+    image: mysql:8.0.31
+    secrets:
+      - wp_dbpass
+    environment:
+      - MYSQL_DATABASE=wordpress
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/wp_dbpass
+    networks:
+      - wp_net
+    volumes:
+      - /data/wordpress/mysql:/var/lib/mysql
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+
+networks:
+  wp_net:
+
+secrets:
+  wp_dbpass:
+    external: true

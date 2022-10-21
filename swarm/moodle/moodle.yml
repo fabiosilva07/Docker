@@ -1,0 +1,44 @@
+version: '3.5'
+
+services:
+  mariadb:
+    image: docker.io/bitnami/mariadb:10.6
+    secrets:
+     - md_dbpass
+    environment:
+      - MARIADB_ROOT_PASSWORD_FILE=/run/secrets/md_dbpass
+      - MARIADB_DATABASE=bitnami_moodle
+      - MARIADB_CHARACTER_SET=utf8mb4
+      - MARIADB_COLLATE=utf8mb4_unicode_ci
+    volumes:
+      - '/u01/docker_pv/moodle/moodle_db:/bitnami/mariadb'
+    networks:
+      moodle_net:
+
+  moodle:
+    image: docker.io/bitnami/moodle:4.0.2
+    ports:
+      - '9092:8080'
+      - '9093:8443'
+    secrets:
+     - md_dbpass
+    environment:
+      - MOODLE_DATABASE_HOST=mariadb
+      - MOODLE_DATABASE_PORT_NUMBER=3306
+      - MOODLE_DATABASE_USER=root
+      - MOODLE_DATABASE_NAME=bitnami_moodle
+      - MOODLE_DATABASE_PASSWORD_FILE=/run/secrets/md_dbpass
+    volumes:
+      - '/u01/docker_pv/moodle/moodle_app/moodle_data:/bitnami/moodle'
+      - '/u01/docker_pv/moodle/moodle_app/moodledata_data:/bitnami/moodledata'
+    networks:
+      moodle_net:
+    depends_on:
+      - mariadb
+
+networks:
+  moodle_net:
+
+secrets:
+  md_dbpass:
+    external: true
